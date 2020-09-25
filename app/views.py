@@ -2,9 +2,10 @@ from django.contrib import messages
 from django.shortcuts import render, redirect
 from . import models
 
+
 #  Render Home Page
 def home(request):
-    users = models.UserInfo.objects.all()
+    users = models.UserInfo.objects.all().order_by('uid')
     context = {'userinfo': users}
     return render(request, 'home.html', context=context)
 
@@ -49,7 +50,7 @@ def make_transaction(request):
             messages.warning(request, 'You don\'t have enough credits')
             return render(request, 'user.html', context=context)
 
-        if credits == 0:
+        if credits <= 0:
             messages.warning(request, 'Invalid credits')
             return render(request, 'user.html', context=context)
 
@@ -62,8 +63,44 @@ def make_transaction(request):
         transaction_obj = models.Transaction(sender=sender, receiver=receiver, credit=credits)
         transaction_obj.save()
 
+        user_info = models.UserInfo.objects.get(name=sender)
+        users = models.UserInfo.objects.all().exclude(name=user_info)
+        context = {'user_info': user_info, 'users': users}
+
         messages.info(request, 'Transaction Success')
         return render(request, 'user.html', context=context)
 
     messages.warning(request, 'Transaction Failed')
     return redirect('/')
+
+
+def adduser(request):
+    return render(request, 'adduser.html')
+
+
+def create_user(request):
+    if request.method == 'POST':
+        name = request.POST.get('name')
+        email = request.POST.get('email')
+        credits = int(request.POST.get('credits'))
+
+        if models.UserInfo.objects.filter(name=name).exists():
+            messages.warning(request, 'User Name already exists')
+            return redirect('adduser')
+
+        if credits <= 0:
+            messages.warning(request, 'Invalid Credits')
+            return redirect('adduser')
+
+        user_obj = models.UserInfo(
+            name=name,
+            email=email,
+            credit=credits
+        )
+        user_obj.save()
+
+        messages.info(request, 'User Successfully added')
+        return redirect('/')
+
+    messages.warning(request, 'User Add failed')
+    return redirect('adduser')
